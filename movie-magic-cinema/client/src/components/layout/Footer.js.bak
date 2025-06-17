@@ -2,9 +2,8 @@ import React from 'react';
 
 const Footer = () => {
   return (
-    <footer className="bg-gray-900 text-gray-400 p-6 text-center mt-12 border-t border-gray-700 text-sm">
+    <footer className="bg-gray-800 text-white p-4 text-center mt-8">
       <p>&copy; {new Date().getFullYear()} Movie Magic Cinema. All rights reserved.</p>
-      <p className="mt-1">Created with Passion</p>
     </footer>
   );
 };

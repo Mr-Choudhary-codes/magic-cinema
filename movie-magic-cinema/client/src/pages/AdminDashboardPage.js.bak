@@ -1,0 +1,213 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import Modal from '../components/common/Modal'; // Import Modal
+
+const AdminDashboardPage = () => {
+  const [movies, setMovies] = useState([]);
+  const [loadingMovies, setLoadingMovies] = useState(true);
+  const [errorMovies, setErrorMovies] = useState('');
+
+  const [newMovie, setNewMovie] = useState({
+    title: '', genre: '', releaseYear: '', language: '',
+    description: '', videoUrl: '', thumbnailUrl: '', rating: '',
+  });
+  const [isSubmittingMovie, setIsSubmittingMovie] = useState(false);
+  const [submitMovieError, setSubmitMovieError] = useState('');
+  const [submitMovieSuccess, setSubmitMovieSuccess] = useState('');
+
+  // State for Edit Movie
+  const [editingMovie, setEditingMovie] = useState(null); // Store the movie object being edited
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isUpdatingMovie, setIsUpdatingMovie] = useState(false);
+  const [updateMovieError, setUpdateMovieError] = useState('');
+  const [updateMovieSuccess, setUpdateMovieSuccess] = useState('');
+
+
+  const fetchMovies = useCallback(async () => {
+    setLoadingMovies(true);
+    setErrorMovies('');
+    try {
+      const response = await axios.get('/api/movies');
+      setMovies(response.data || []);
+    } catch (err) {
+      console.error('Error fetching movies for admin:', err);
+      setErrorMovies('Failed to fetch movies.');
+    } finally {
+      setLoadingMovies(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMovies();
+  }, [fetchMovies]);
+
+  const handleDeleteMovie = async (movieId, movieTitle) => {
+    if (window.confirm(\`Are you sure you want to delete "\${movieTitle}"?\`)) {
+      try {
+        const token = localStorage.getItem('adminToken');
+        if (!token) { setErrorMovies('Authentication error.'); return; }
+        await axios.delete(\`/api/movies/\${movieId}\`, {
+          headers: { Authorization: \`Bearer \${token}\` },
+        });
+        fetchMovies();
+      } catch (err) {
+        setErrorMovies(\`Failed to delete movie. \${err.response?.data?.message || ''}\`);
+      }
+    }
+  };
+
+  const handleNewMovieChange = (e) => {
+    const { name, value } = e.target;
+    setNewMovie(prev => ({ ...prev, [name]: valueAsNumber(name, value) }));
+  };
+
+  const valueAsNumber = (name, value) => {
+    if (name === 'releaseYear' || name === 'rating') {
+      const num = parseFloat(value);
+      return isNaN(num) ? '' : num;
+    }
+    return value;
+  };
+
+  const handleAddNewMovie = async (e) => {
+    e.preventDefault();
+    setIsSubmittingMovie(true); setSubmitMovieError(''); setSubmitMovieSuccess('');
+    const token = localStorage.getItem('adminToken');
+    if (!token) { setSubmitMovieError('Auth required.'); setIsSubmittingMovie(false); return; }
+    if (!newMovie.title || !newMovie.genre || !newMovie.releaseYear || !newMovie.description || !newMovie.videoUrl || !newMovie.thumbnailUrl) {
+        setSubmitMovieError('Required fields missing.'); setIsSubmittingMovie(false); return;
+    }
+    try {
+      await axios.post('/api/movies', newMovie, { headers: { Authorization: \`Bearer \${token}\` } });
+      setSubmitMovieSuccess('Movie added!');
+      setNewMovie({ title: '', genre: '', releaseYear: '', language: '', description: '', videoUrl: '', thumbnailUrl: '', rating: '' });
+      fetchMovies();
+    } catch (err) {
+      setSubmitMovieError(\`Failed to add. \${err.response?.data?.message || 'Error'}\`);
+    } finally {
+      setIsSubmittingMovie(false);
+      setTimeout(() => { setSubmitMovieError(''); setSubmitMovieSuccess(''); }, 3000);
+    }
+  };
+
+  // Edit Movie Handlers
+  const handleOpenEditModal = (movie) => {
+    setEditingMovie({...movie}); // Set the movie to edit, ensure all fields are present
+    setShowEditModal(true);
+    setUpdateMovieError('');
+    setUpdateMovieSuccess('');
+  };
+
+  const handleEditMovieChange = (e) => {
+    const { name, value } = e.target;
+    setEditingMovie(prev => ({ ...prev, [name]: valueAsNumber(name, value) }));
+  };
+
+  const handleUpdateMovie = async (e) => {
+    e.preventDefault();
+    if (!editingMovie || !editingMovie._id) return;
+    setIsUpdatingMovie(true); setUpdateMovieError(''); setUpdateMovieSuccess('');
+    const token = localStorage.getItem('adminToken');
+    if (!token) { setUpdateMovieError('Auth required.'); setIsUpdatingMovie(false); return; }
+
+    // Basic validation for editingMovie
+    if (!editingMovie.title || !editingMovie.genre || !editingMovie.releaseYear || !editingMovie.description || !editingMovie.videoUrl || !editingMovie.thumbnailUrl) {
+        setUpdateMovieError('Required fields missing in edit form.'); setIsUpdatingMovie(false); return;
+    }
+
+    try {
+      await axios.put(\`/api/movies/\${editingMovie._id}\`, editingMovie, {
+        headers: { Authorization: \`Bearer \${token}\` },
+      });
+      setUpdateMovieSuccess('Movie updated successfully!');
+      fetchMovies(); // Refresh list
+      setTimeout(() => { // Close modal after a short delay to show success message
+        setShowEditModal(false);
+        setEditingMovie(null);
+        setUpdateMovieSuccess('');
+      }, 1500);
+    } catch (err) {
+      setUpdateMovieError(\`Failed to update. \${err.response?.data?.message || 'Server error'}\`);
+    } finally {
+      setIsUpdatingMovie(false);
+       setTimeout(() => { setUpdateMovieError(''); }, 3000); // Clear error after 3s
+    }
+  };
+
+  const inputClass = "w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-red-500 focus:border-red-500 placeholder-gray-400";
+  const labelClass = "block text-sm font-medium text-gray-300 mb-1";
+
+  return (
+    <div className="p-4 md:p-6">
+      <h1 className="text-3xl font-bold text-white mb-6">Admin Dashboard</h1>
+
+      {/* Add New Movie Form Section */}
+      <div className="mb-10 p-6 bg-gray-800 rounded-lg shadow-md">
+        {/* ... Add New Movie form JSX (kept same as previous step) ... */}
+        <h2 className="text-2xl font-semibold text-white mb-5">Add New Movie</h2>
+        {submitMovieError && <p className="bg-red-500 text-white p-3 rounded mb-4">{submitMovieError}</p>}
+        {submitMovieSuccess && <p className="bg-green-500 text-white p-3 rounded mb-4">{submitMovieSuccess}</p>}
+        <form onSubmit={handleAddNewMovie} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><label htmlFor="title" className={labelClass}>Title*</label><input type="text" name="title" id="title" value={newMovie.title} onChange={handleNewMovieChange} className={inputClass} required /></div>
+            <div><label htmlFor="genre" className={labelClass}>Genre*</label><input type="text" name="genre" id="genre" value={newMovie.genre} onChange={handleNewMovieChange} className={inputClass} required /></div>
+            <div><label htmlFor="releaseYear" className={labelClass}>Release Year*</label><input type="number" name="releaseYear" id="releaseYear" value={newMovie.releaseYear} onChange={handleNewMovieChange} className={inputClass} required /></div>
+            <div><label htmlFor="language" className={labelClass}>Language</label><input type="text" name="language" id="language" value={newMovie.language} onChange={handleNewMovieChange} className={inputClass} /></div>
+          </div>
+          <div><label htmlFor="description" className={labelClass}>Description*</label><textarea name="description" id="description" value={newMovie.description} onChange={handleNewMovieChange} className={inputClass} rows="3" required></textarea></div>
+          <div><label htmlFor="videoUrl" className={labelClass}>Video URL*</label><input type="url" name="videoUrl" id="videoUrl" value={newMovie.videoUrl} onChange={handleNewMovieChange} className={inputClass} required /></div>
+          <div><label htmlFor="thumbnailUrl" className={labelClass}>Thumbnail URL*</label><input type="url" name="thumbnailUrl" id="thumbnailUrl" value={newMovie.thumbnailUrl} onChange={handleNewMovieChange} className={inputClass} required /></div>
+          <div><label htmlFor="rating" className={labelClass}>Rating (0-10)</label><input type="number" name="rating" id="rating" value={newMovie.rating} onChange={handleNewMovieChange} className={inputClass} min="0" max="10" step="0.1" /></div>
+          <button type="submit" disabled={isSubmittingMovie} className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md disabled:opacity-50">{isSubmittingMovie ? 'Adding...' : 'Add Movie'}</button>
+        </form>
+      </div>
+
+      {/* Movie List Section */}
+      <h2 className="text-2xl font-semibold text-white mb-5">Manage Existing Movies</h2>
+      {loadingMovies && <div className="text-center py-5"><div className="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-16 w-16 mx-auto"></div><p>Loading...</p></div>}
+      {errorMovies && <p className="text-red-500 p-4 text-center">{errorMovies}</p>}
+      {!loadingMovies && !errorMovies && movies.length === 0 && <p className="text-gray-400">No movies.</p>}
+      {!loadingMovies && !errorMovies && movies.length > 0 && (
+        <div className="overflow-x-auto bg-gray-800 shadow-md rounded-lg">
+          <table className="min-w-full text-sm text-left text-gray-300">
+            <thead className="text-xs text-gray-100 uppercase bg-gray-700"><tr><th className="px-6 py-3">Thumbnail</th><th className="px-6 py-3">Title</th><th className="px-6 py-3">Genre</th><th className="px-6 py-3">Year</th><th className="px-6 py-3">Actions</th></tr></thead>
+            <tbody>
+              {movies.map((movie) => (
+                <tr key={movie._id} className="border-b border-gray-700 hover:bg-gray-750">
+                  <td className="px-6 py-4"><img src={movie.thumbnailUrl || 'https://via.placeholder.com/50x75?text=N/A'} alt={movie.title} className="h-16 w-auto rounded"/></td>
+                  <td className="px-6 py-4 font-medium text-white">{movie.title}</td><td className="px-6 py-4">{movie.genre}</td><td className="px-6 py-4">{movie.releaseYear}</td>
+                  <td className="px-6 py-4">
+                    <button onClick={() => handleOpenEditModal(movie)} className="font-medium text-blue-500 hover:underline mr-3">Edit</button>
+                    <button onClick={() => handleDeleteMovie(movie._id, movie.title)} className="font-medium text-red-500 hover:underline">Delete</button>
+                  </td></tr>))}
+            </tbody></table></div>)}
+
+      {/* Edit Movie Modal */}
+      {editingMovie && (
+        <Modal isOpen={showEditModal} onClose={() => { setShowEditModal(false); setEditingMovie(null); }} title="Edit Movie">
+          {updateMovieError && <p className="bg-red-500 text-white p-3 rounded mb-4">{updateMovieError}</p>}
+          {updateMovieSuccess && <p className="bg-green-500 text-white p-3 rounded mb-4">{updateMovieSuccess}</p>}
+          <form onSubmit={handleUpdateMovie} className="space-y-4">
+            {/* Form fields are similar to Add New Movie, but use 'editingMovie' state */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div><label htmlFor="editTitle" className={labelClass}>Title*</label><input type="text" name="title" id="editTitle" value={editingMovie.title || ''} onChange={handleEditMovieChange} className={inputClass} required /></div>
+              <div><label htmlFor="editGenre" className={labelClass}>Genre*</label><input type="text" name="genre" id="editGenre" value={editingMovie.genre || ''} onChange={handleEditMovieChange} className={inputClass} required /></div>
+              <div><label htmlFor="editReleaseYear" className={labelClass}>Release Year*</label><input type="number" name="releaseYear" id="editReleaseYear" value={editingMovie.releaseYear || ''} onChange={handleEditMovieChange} className={inputClass} required /></div>
+              <div><label htmlFor="editLanguage" className={labelClass}>Language</label><input type="text" name="language" id="editLanguage" value={editingMovie.language || ''} onChange={handleEditMovieChange} className={inputClass} /></div>
+            </div>
+            <div><label htmlFor="editDescription" className={labelClass}>Description*</label><textarea name="description" id="editDescription" value={editingMovie.description || ''} onChange={handleEditMovieChange} className={inputClass} rows="3" required></textarea></div>
+            <div><label htmlFor="editVideoUrl" className={labelClass}>Video URL*</label><input type="url" name="videoUrl" id="editVideoUrl" value={editingMovie.videoUrl || ''} onChange={handleEditMovieChange} className={inputClass} required /></div>
+            <div><label htmlFor="editThumbnailUrl" className={labelClass}>Thumbnail URL*</label><input type="url" name="thumbnailUrl" id="editThumbnailUrl" value={editingMovie.thumbnailUrl || ''} onChange={handleEditMovieChange} className={inputClass} required /></div>
+            <div><label htmlFor="editRating" className={labelClass}>Rating (0-10)</label><input type="number" name="rating" id="editRating" value={editingMovie.rating || ''} onChange={handleEditMovieChange} className={inputClass} min="0" max="10" step="0.1" /></div>
+            <div className="flex justify-end space-x-3">
+              <button type="button" onClick={() => { setShowEditModal(false); setEditingMovie(null);}} className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white font-medium rounded-md">Cancel</button>
+              <button type="submit" disabled={isUpdatingMovie} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md disabled:opacity-50">{isUpdatingMovie ? 'Updating...' : 'Save Changes'}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+export default AdminDashboardPage;

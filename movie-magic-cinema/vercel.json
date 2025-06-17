@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server/index.js",
+      "use": "@vercel/node",
+      "config": { "includeFiles": ["server/models/**", "server/routes/**", "server/controllers/**", "server/middleware/**"] }
+    },
+    {
+      "src": "client/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "client/build" }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "server/index.js"
+    },
+    {
+      "src": "/static/(.*)",
+      "headers": { "cache-control": "s-maxage=31536000,immutable" },
+      "dest": "/client/static/$1"
+    },
+    {
+      "src": "/(.*\.(?:ico|png|jpg|jpeg|gif|svg|webmanifest|json|txt|map|eot|ttf|woff|woff2))",
+      "headers": { "cache-control": "s-maxage=31536000,immutable" },
+      "dest": "/client/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "client/index.html"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+    // MONGO_URI and JWT_SECRET should be set in Vercel project settings
+  },
+  "github": {
+    "silent": true
+  }
+}

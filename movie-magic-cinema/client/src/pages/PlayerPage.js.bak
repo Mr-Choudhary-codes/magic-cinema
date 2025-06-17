@@ -1,0 +1,96 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import axios from 'axios';
+import ReactPlayer from 'react-player/lazy'; // Lazy load for better performance
+
+const PlayerPage = () => {
+  const { movieId } = useParams();
+  const [videoUrl, setVideoUrl] = useState('');
+  const [movieTitle, setMovieTitle] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchMovieVideo = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const response = await axios.get(`/api/movies/\${movieId}`);
+        if (response.data && response.data.videoUrl) {
+          setVideoUrl(response.data.videoUrl);
+          setMovieTitle(response.data.title || 'Video');
+        } else {
+          setError('Video URL not found for this movie.');
+        }
+      } catch (err) {
+        console.error('Error fetching movie video details:', err);
+        if (err.response && err.response.status === 404) {
+          setError('Movie not found or video is unavailable.');
+        } else {
+          setError('Failed to load video. Please try again later.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (movieId) {
+      fetchMovieVideo();
+    }
+  }, [movieId]);
+
+  if (loading) {
+    return (
+      <div className="bg-black min-h-screen flex justify-center items-center text-white">
+        <div className="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-32 w-32"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-black min-h-screen flex flex-col justify-center items-center text-white p-4">
+        <p className="text-red-500 text-2xl mb-4">{error}</p>
+        <Link to="/" className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+          Go to Homepage
+        </Link>
+      </div>
+    );
+  }
+
+  if (!videoUrl) {
+    // Should be caught by error state, but as a fallback
+    return <div className="bg-black min-h-screen flex justify-center items-center text-white">Video not available.</div>;
+  }
+
+  return (
+    <div className="bg-black min-h-screen flex flex-col items-center justify-center p-0 m-0">
+      {/* Optional: Add a small header or back button here if desired */}
+      {/* <div className="w-full p-4 fixed top-0 z-10 bg-black bg-opacity-50">
+        <Link to={`/movie/\${movieId}`} className="text-white hover:text-red-500">&larr; Back to Details</Link>
+        <h2 className="text-xl text-white truncate ml-4 inline-block">{movieTitle}</h2>
+      </div> */}
+      <div className='player-wrapper w-full h-full aspect-video max-w-full max-h-screen'>
+        <ReactPlayer
+          className='react-player fixed top-0 left-0'
+          url={videoUrl}
+          width='100%'
+          height='100%'
+          controls={true}
+          playing={true} // Autoplay
+          pip={true} // Picture-in-picture
+          stopOnUnmount={true}
+          config={{
+            file: {
+              attributes: {
+                controlsList: 'nodownload', // Optional: Disable download button on some browsers
+              }
+            }
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default PlayerPage;
